@@ -1,0 +1,22 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug",
+            "program": "clang",
+            "args": [
+                "-c", "-fplugin=./libclanglua.so", "-Xclang", "-add-plugin", "-Xclang", "lua", "-std=c2x", "-Wall", "-Wno-unknown-pragmas", "-Werror", "-Wextra", "-Wno-unused-function", "-Wno-unused-parameter", "-Wno-unused-variable", "-I/usr/local/include/lua", "Test.c", "-o", "Test.o"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "DYLD_INSERT_LIBRARIES" : "/usr/local/Cellar/llvm/16.0.3/lib/clang/16/lib/darwin/libclang_rt.asan_osx_dynamic.dylib"
+            },
+            "preLaunchTask": "Make"
+        }
+    ]
+}
