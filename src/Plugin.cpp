@@ -88,6 +88,9 @@ namespace LuaClang {
             compile(_compiler, _file_name, buf.begin(), buf.end());
         }
     };
+
+    Rewriter Plugin::_rewriter;
+    Module Plugin::_module;
 }
 
 static FrontendPluginRegistry::Add<LuaClang::Plugin> X("lua", "Plugin for automating the creation of lua modules");

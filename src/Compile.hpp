@@ -75,6 +75,6 @@ namespace LuaClang
 
         // clean up rewrite buffer
 
-        FileMemoryBuffer.release();
+        (void)FileMemoryBuffer.release();
     }
 }

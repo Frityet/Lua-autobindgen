@@ -1,5 +1,6 @@
 .cache
 build
-libclanglua.so
 out
 compile_commands.json
+*.o
+*.so

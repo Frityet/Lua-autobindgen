@@ -7,7 +7,7 @@
 
 using namespace LuaClang;
 
-constexpr const char *LUA_FUNCTION_EXPORT_ATTRIBUTE = "lua export function";
+constexpr const char *LUA_EXPORT_FUNCTION_ATTRIBUTE = "lua export function";
 
 bool FunctionVisitor::VisitFunctionDecl(FunctionDecl *func)
 {
@@ -15,17 +15,17 @@ bool FunctionVisitor::VisitFunctionDecl(FunctionDecl *func)
 
     out << "Visiting function " << func->getNameAsString() << "\n";
 
-    if (func->hasAttr<clang::AnnotateAttr>() and func->hasBody()) {
+    if (func->hasAttr<clang::AnnotateAttr>()) {
         out << "Found annotated function " << func->getNameAsString() << "\n";
         auto *attr = func->getAttr<clang::AnnotateAttr>();
-        if (attr->getAnnotation() != LUA_FUNCTION_EXPORT_ATTRIBUTE)
+        if (attr->getAnnotation() != LUA_EXPORT_FUNCTION_ATTRIBUTE)
             return true;
 
         auto &ctx = func->getASTContext();
         auto &sm = ctx.getSourceManager();
         auto loc = sm.getSpellingLoc(attr->getLocation());
 
-        std::vector<QualType> arguments = {};
+        std::vector<QualType> arguments;
 
         for (ParmVarDecl *param : func->parameters())
             arguments.emplace_back(param->getOriginalType().getUnqualifiedType());

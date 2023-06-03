@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <string>
+#include <variant>
 
 #include "Function.hpp"
 #include "Userdata.hpp"
@@ -13,15 +14,6 @@ using namespace clang;
 
 namespace LuaClang
 {
-    enum struct Type {
-        INTEGER,
-        NUMBER,
-        STRING,
-        FUNCTION,
-        USERDATA,
-        LIGHT_USERDATA
-    };
-
     struct Module {
         std::string name, file;
         std::vector<Function> functions;

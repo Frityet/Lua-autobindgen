@@ -7,9 +7,8 @@
 #define lua_export(...) clang::annotate("lua export "#__VA_ARGS__)
 
 [[lua_export(function)]]
-static int add(int x, int y)
+long add(long x, long y)
 { return x + y; }
 
 [[lua_export(function)]]
-static void say_hello(const char *to)
-{ printf("Hello %s!\n", to); }
+extern int puts(const char *s);

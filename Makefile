@@ -8,9 +8,9 @@ CXXFLAGS=-fPIC -g -Og\
 		-Wnon-virtual-dtor\
     	-Woverloaded-virtual\
     	-Wformat=2\
-		$(shell $(LLVM_CONFIG) --cxxflags) -fsanitize=address,undefined -std=c++20
+		$(shell $(LLVM_CONFIG) --cxxflags) -std=c++20
 LD=$(CXX)
-LDFLAGS=$(shell $(LLVM_CONFIG) --ldflags) -lclang -lclang-cpp  -undefined dynamic_lookup  $(shell $(LLVM_CONFIG) --libs) -fsanitize=address,undefined
+LDFLAGS=$(shell $(LLVM_CONFIG) --ldflags) -lclang -lclang-cpp  -undefined dynamic_lookup  $(shell $(LLVM_CONFIG) --libs)
 
 TEST_CFLAGS=-std=c2x -Wall -Wno-unknown-pragmas -Werror -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable $(shell $(PKG_CONFIG) --cflags lua)
 TEST_LDFLAGS= -shared -undefined dynamic_lookup $(shell $(PKG_CONFIG) --libs lua)
@@ -34,8 +34,10 @@ test.so: Test.o libclanglua.so
 
 Test.o: Test.c libclanglua.so
 	@/usr/bin/printf "[\033[1;35mTest\033[0m] \033[32mCompiling \033[33m$<\n\033[0m"
-	DYLD_INSERT_LIBRARIES=/usr/local/Cellar/llvm/16.0.3/lib/clang/16/lib/darwin/libclang_rt.asan_osx_dynamic.dylib \
 	$(CC) -v -c -fplugin=./libclanglua.so -Xclang -add-plugin -Xclang lua $(TEST_CFLAGS) $< -o $@
+
+test: test.so
+	lua test-generated.lua
 
 clean:
 	rm -rf build
