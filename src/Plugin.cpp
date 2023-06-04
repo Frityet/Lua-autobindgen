@@ -1,96 +1,93 @@
-//==============================================================================
-// FILE:
-//    HelloWorld.cpp
-//
-// DESCRIPTION:
-//    Counts the number of C++ record declarations in the input translation
-//    unit. The results are printed on a file-by-file basis (i.e. for each
-//    included header file separately).
-//
-//    Internally, this implementation leverages llvm::StringMap to map file
-//    names to the corresponding #count of declarations.
-//
-// USAGE:
-//   clang -cc1 -load <BUILD_DIR>/lib/libHelloWorld.dylib '\'
-//    -plugin hello-world test/HelloWorld-basic.cpp
-//
-// License: The Unlicense
-//==============================================================================
+///
+/// @author Amrit Bhogal on 03/06/2023
+/// @brief 
+/// @version 1.0.0
+///
 
-
-#include <cstdio>
-#include <memory>
-#include <filesystem>
-#include <fstream>
+#include <string>
+#include <ranges>
+#include <unordered_map>
 
 #include <clang/Lex/Preprocessor.h>
 #include <clang/Frontend/FrontendPluginRegistry.h>
+#include <clang/Rewrite/Core/Rewriter.h>
+#include <clang/Frontend/CompilerInstance.h>
 
-#include "Function.hpp"
-#include "Module.hpp"
-#include "Compile.hpp"
+#include "Log.hpp"
 
-
-
-auto &out = llvm::outs();
-
-namespace LuaClang {
+namespace LuaClang
+{
     class ASTConsumer : public clang::ASTConsumer {
-    public:
-        ASTConsumer(CompilerInstance &comp, Rewriter &rw, Module &module)
-            : _module_handler(module),
-              _function_consumer(comp, rw, module)
-        {
-            comp.getPreprocessor().AddPragmaHandler("lua", &_module_handler);
-        }
-
-        bool HandleTopLevelDecl(DeclGroupRef decls) override {
-            //This doesn't sit right, but it works for now
-            //TODO: alternate solution
-            return _function_consumer.HandleTopLevelDecl(decls);
-        }
-
     private:
-        ModulePragmaHandler _module_handler;
-        FunctionASTConsumer _function_consumer;
+        clang::Rewriter _rewriter;
+
+    public:
+        explicit ASTConsumer(clang::CompilerInstance *comp) : _rewriter(comp->getSourceManager(), comp->getLangOpts())
+        {}
     };
 
-    class Plugin : public PluginASTAction {
+    /// @brief Entry point for the plugin.
+    class Plugin : public clang::PluginASTAction {
+    public:
+        struct Options {
+            enum class Version {
+                Lua51,
+                Lua52,
+                Lua53,
+                Lua54
+            } version = Version::Lua54;
+        } options;
+
     private:
-        static Rewriter _rewriter;
-        static Module _module;
-        std::string _file_name;
+        std::string _filename;
         clang::CompilerInstance *_compiler;
 
-    protected:
-        std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(CompilerInstance &comp, llvm::StringRef fname) override
+    public:
+        std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance &comp, llvm::StringRef fname) override
         {
-            _compiler = &comp;
-            _rewriter.setSourceMgr(comp.getSourceManager(), comp.getLangOpts());
-            _file_name = fname.str();
-            return std::make_unique<LuaClang::ASTConsumer>(comp, _rewriter, _module);
+            _compiler = const_cast<clang::CompilerInstance *>(&comp);
+            _filename = fname.str();
+
+            return std::make_unique<ASTConsumer>(_compiler);
         }
 
-        bool ParseArgs(const CompilerInstance &, const std::vector<std::string> &) override
-        { return true; }
+        bool ParseArgs(const clang::CompilerInstance &compiler, const std::vector<std::string> &args) override
+        {
+            std::unordered_map<std::string, std::function<bool(const std::vector<std::string> &args, Options &options)>> opts = {
+                {
+                    "version", [](const std::vector<std::string> &args, Options &options) -> bool {
+                        if (args.empty()) {
+                            error("version option requires an argument");
+                            return false;
+                        }
 
+                        if (args[0] == "5.1") {
+                            options.version = Options::Version::Lua51;
+                        } else if (args[0] == "5.2") {
+                            options.version = Options::Version::Lua52;
+                        } else if (args[0] == "5.3") {
+                            options.version = Options::Version::Lua53;
+                        } else if (args[0] == "5.4") {
+                            options.version = Options::Version::Lua54;
+                        } else {
+                            error("invalid version option: ", args[0]);
+                            return false;
+                        }
+
+                        llvm::outs() << "luaclang: using Lua " << args[0] << "\n";
+
+                        return true;
+                    }
+                }
+            };
+
+            return true;
+        }
 
         clang::PluginASTAction::ActionType getActionType() override
         { return clang::PluginASTAction::ReplaceAction; }
-
-        void EndSourceFileAction() override
-        {
-            out << "EndSourceFileAction\n";
-            auto &sm = _rewriter.getSourceMgr();
-            auto fid = sm.getMainFileID();
-            _rewriter.InsertTextAfter(sm.getLocForEndOfFile(fid), _module.to_code());
-            clang::RewriteBuffer &buf = _rewriter.getEditBuffer(fid);
-            compile(_compiler, _file_name, buf.begin(), buf.end());
-        }
     };
-
-    Rewriter Plugin::_rewriter;
-    Module Plugin::_module;
 }
 
-static FrontendPluginRegistry::Add<LuaClang::Plugin> X("lua", "Plugin for automating the creation of lua modules");
+[[gnu::used]]
+static clang::FrontendPluginRegistry::Add<LuaClang::Plugin> X("luaclang", "Plugin for the automatic generation of Lua bindings for C/C++ code");

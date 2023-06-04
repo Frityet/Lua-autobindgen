@@ -13,34 +13,48 @@ LD=$(CXX)
 LDFLAGS=$(shell $(LLVM_CONFIG) --ldflags) -lclang -lclang-cpp  -undefined dynamic_lookup  $(shell $(LLVM_CONFIG) --libs)
 
 TEST_CFLAGS=-std=c2x -Wall -Wno-unknown-pragmas -Werror -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable $(shell $(PKG_CONFIG) --cflags lua)
-TEST_LDFLAGS= -shared -undefined dynamic_lookup $(shell $(PKG_CONFIG) --libs lua)
+TEST_LDFLAGS=-shared -undefined dynamic_lookup $(shell $(PKG_CONFIG) --libs lua)
+PLUGIN_ARGS=-Xclang -add-plugin -Xclang luaclang -Xclang -plugin-arg-luaclang -Xclang -
 
-
-PLUGIN_SRC=src/Plugin.cpp src/Function.cpp src/Module.cpp src/Userdata.cpp
+PLUGIN_SRC=src/Plugin.cpp
 PLUGIN_OBJ=$(addprefix build/obj/,$(PLUGIN_SRC:.cpp=.cpp.o))
 
-libclanglua.so: $(PLUGIN_OBJ)
+TEST_SRC=test/src/Functions.c
+TEST_OBJ=$(addprefix build/obj/,$(TEST_SRC:.c=.c.o))
+
+PLUGIN_PATH=$(BUILD_DIR)/lib/libclanglua.so
+
+BUILD_DIR=build
+
+all: $(BUILD_DIR)/lib/libclanglua.so $(BUILD_DIR)/lib/test.so
+
+$(PLUGIN_PATH): $(PLUGIN_OBJ)
 	@/usr/bin/printf "[\033[1;35mPlugin\033[0m] \033[32mLinking \033[33m$<\n\033[0m"
+	@mkdir -p $(dir $@)
 	$(LD) $^ -o $@ -shared $(LDFLAGS)
 
-build/obj/src/%.cpp.o: src/%.cpp
+$(BUILD_DIR)/obj/src/%.cpp.o: src/%.cpp
 	@/usr/bin/printf "[\033[1;35mPlugin\033[0m] \033[32mCompiling \033[33m$<\n\033[0m"
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@
 
-test.so: Test.o libclanglua.so
-	@/usr/bin/printf "[\033[1;35mTest\033[0m] \033[32mLinking \033[33m$<\n\033[0m"
-	$(CC) Test.o -o $@ $(TEST_LDFLAGS)
 
-Test.o: Test.c libclanglua.so
+$(BUILD_DIR)/obj/test/src/%.c.o: test/src/%.c $(PLUGIN_PATH)
 	@/usr/bin/printf "[\033[1;35mTest\033[0m] \033[32mCompiling \033[33m$<\n\033[0m"
-	$(CC) -v -c -fplugin=./libclanglua.so -Xclang -add-plugin -Xclang lua $(TEST_CFLAGS) $< -o $@
+	@mkdir -p $(dir $@)
+	$(CC) -v -c -fplugin=./$(PLUGIN_PATH) $(PLUGIN_ARGS) $(TEST_CFLAGS) $< -o $@
 
-test: test.so
-	lua test-generated.lua
+$(BUILD_DIR)/lib/test.so: $(TEST_OBJ)
+	@/usr/bin/printf "[\033[1;35mTest\033[0m] \033[32mLinking \033[33m$<\n\033[0m"
+	@mkdir -p $(dir $@)
+	$(CXX) $^ -o $@ $(TEST_LDFLAGS)
+
+test: $(BUILD_DIR)/lib/test.so
+	@/usr/bin/printf "[\033[1;35mTest\033[0m] \033[32mRunning \033[33m$<\n\033[0m"
+	lua test/suite.lua
 
 clean:
-	rm -rf build
+	rm -rf $(BUILD_DIR)
 	rm -rf libclanglua.so
 	rm -rf Test.o
 	rm -rf test.so
