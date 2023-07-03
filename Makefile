@@ -14,9 +14,11 @@ LDFLAGS=$(shell $(LLVM_CONFIG) --ldflags) -lclang -lclang-cpp  -undefined dynami
 
 TEST_CFLAGS=-std=c2x -Wall -Wno-unknown-pragmas -Werror -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable $(shell $(PKG_CONFIG) --cflags lua)
 TEST_LDFLAGS=-shared -undefined dynamic_lookup $(shell $(PKG_CONFIG) --libs lua)
-PLUGIN_ARGS=-Xclang -add-plugin -Xclang luaclang -Xclang -plugin-arg-luaclang -Xclang -
+PLUGIN_ARGS=-Xclang -add-plugin -Xclang luaclang -Xclang -plugin-arg-luaclang -Xclang
 
-PLUGIN_SRC=src/Plugin.cpp
+PLUGIN_SRC=	src/Plugin.cpp\
+			src/Modules/Entries/FunctionEntry.cpp src/Modules/Entries/UserdataEntry.cpp src/Modules/Entries/VariableEntry.cpp\
+			src/Modules/Module.cpp src/Modules/Lua54Module.cpp
 PLUGIN_OBJ=$(addprefix build/obj/,$(PLUGIN_SRC:.cpp=.cpp.o))
 
 TEST_SRC=test/src/Functions.c
@@ -26,7 +28,8 @@ PLUGIN_PATH=$(BUILD_DIR)/lib/libclanglua.so
 
 BUILD_DIR=build
 
-all: $(BUILD_DIR)/lib/libclanglua.so $(BUILD_DIR)/lib/test.so
+all: $(PLUGIN_PATH) $(BUILD_DIR)/lib/test.so
+build: $(PLUGIN_PATH)
 
 $(PLUGIN_PATH): $(PLUGIN_OBJ)
 	@/usr/bin/printf "[\033[1;35mPlugin\033[0m] \033[32mLinking \033[33m$<\n\033[0m"
@@ -36,7 +39,7 @@ $(PLUGIN_PATH): $(PLUGIN_OBJ)
 $(BUILD_DIR)/obj/src/%.cpp.o: src/%.cpp
 	@/usr/bin/printf "[\033[1;35mPlugin\033[0m] \033[32mCompiling \033[33m$<\n\033[0m"
 	@mkdir -p $(dir $@)
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+	$(CXX) -c $(CXXFLAGS) -Isrc $< -o $@
 
 
 $(BUILD_DIR)/obj/test/src/%.c.o: test/src/%.c $(PLUGIN_PATH)
